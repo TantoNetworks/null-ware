@@ -204,28 +204,45 @@ function SimpleUI.CreateWindow(opts)
 	local themeElements = {window, leftCol, rightPanel, top, title, contentScroll, tabsList, leftFooterLabel} -- to apply theme updates
 
 	-- function to apply theme to elements
-	local function applyTheme(tname)
-		if not SimpleUI.Themes[tname] then return end
-		theme = SimpleUI.Themes[tname]
-		window.BackgroundColor3 = theme.Panel
-		leftCol.BackgroundColor3 = theme.Panel
-		rightPanel.BackgroundColor3 = theme.Panel
-		title.TextColor3 = theme.Text
-		leftFooterLabel.TextColor3 = theme.Text
-		for _,v in pairs(themeElements) do
-			if v and v:IsA("TextButton") then
-				v.TextColor3 = theme.Text
-				-- if it's an accent button we might keep accent
-			elseif v and (v:IsA("TextLabel") or v:IsA("TextBox")) then
-				v.TextColor3 = theme.Text
-			elseif v and v:IsA("Frame") then
-				-- skip many frames to keep panel look, but for plain frames set subtle
-				-- we won't blindly recolor everything to avoid washing out accents
-			elseif v and v:IsA("ScrollingFrame") then
-				-- nothing
-			end
-		end
-	end
+	-- safer applyTheme: only operate on real Instances & supported classes
+local function applytheme(tname)
+    if not SimpleUI.Themes[tname] then return end
+    local theme = SimpleUI.Themes[tname]
+
+    -- top-level assignments (instances we know exist)
+    if window and typeof(window) == "Instance" and window:IsA("GuiObject") then
+        window.BackgroundColor3 = theme.Panel
+    end
+    if title and typeof(title) == "Instance" and title:IsA("TextLabel") then
+        title.TextColor3 = theme.Text
+    end
+
+    -- iterate stored themeElements table safely
+    for _, v in ipairs(themeElements) do
+        if typeof(v) == "Instance" then
+            -- Frames and ImageLabels get colored by Panel or Background
+            if v:IsA("Frame") or v:IsA("ImageLabel") then
+                -- keep some frames untouched if you prefer; using Panel as default
+                if pcall(function() v.BackgroundColor3 = theme.Panel end) then
+                    -- ok
+                end
+            end
+
+            -- Text elements: TextLabel, TextButton, TextBox
+            if v:IsA("TextLabel") or v:IsA("TextBox") or v:IsA("TextButton") then
+                pcall(function() v.TextColor3 = theme.Text end)
+                if v:IsA("TextBox") then
+                    pcall(function() v.BackgroundColor3 = theme.Background end)
+                end
+            end
+
+            -- If a button uses accent backgrounds, preserve that by not forcing BackgroundColor3
+            -- You can add more granular checks here if needed.
+        end
+        -- if not an Instance, skip it safely
+    end
+end
+
 
 	-- draggable logic (custom)
 	do
